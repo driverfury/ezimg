@@ -21,6 +21,10 @@ int ezimg_bmp_load(
 
 2. Use it
 ```c
+/**
+ * comp_img = compressed image buffer
+ * uncomp_img = uncompressed image buffer
+ */
 unsigned int width, height;
 uncomp_img_size = ezimg_bmp_size(comp_image, comp_image_size);
 uncomp_img = malloc(uncomp_img_size);

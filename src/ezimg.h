@@ -15,10 +15,8 @@ ezimg_bmp_load(
     uncomp_img, uncomp_img_size,
     &width, &height);
 
-TODO:
-[ ] BMP:
-    [ ] compression 1 and 2
-    [ ] bit_count 8 and 16
+Supported formats:
+[x] BMP:
 [ ] PNGs
 
  */
@@ -196,14 +194,16 @@ ezimg_bmp_load(
 {
 #define XY2OFF(X, Y) (((Y)*absw + (X))*4)
 #define YX2OFF(Y, X) (((Y)*absw + (X))*4)
+#define PADDING(V, P) ((V)%(P)==0)?(0):((P)-((V)%(P)))
     unsigned char sign1, sign2;
     int w, h;
     unsigned int absw, absh;
-    unsigned int x, y, padding;
-    unsigned int data_offset;
+    unsigned int x, y, padding, i;
+    unsigned int data_offset, data_size;
+    unsigned int dib_header_size;
     unsigned int planes, bit_count, compression;
-    unsigned char *data;
-    unsigned int data_size;
+    unsigned int palette_offset;
+    unsigned char *data, *palette;
     unsigned char *outp;
     unsigned char r, g, b, a;
     unsigned int rmask, gmask, bmask, amask;
@@ -227,7 +227,7 @@ ezimg_bmp_load(
     ezimg_read_u32(&stream);
     ezimg_read_u32(&stream);
     data_offset = ezimg_read_u32(&stream);
-    ezimg_read_u32(&stream);
+    dib_header_size = ezimg_read_u32(&stream);
 
     w = ezimg_read_i32(&stream);
     h = ezimg_read_i32(&stream);
@@ -248,7 +248,8 @@ ezimg_bmp_load(
         return(EZIMG_NOT_SUPPORTED);
     }
 
-    if(bit_count != 24 && bit_count != 32)
+    if( bit_count != 4 && bit_count != 8 &&
+        bit_count != 24 && bit_count != 32)
     {
         return(EZIMG_NOT_SUPPORTED);
     }
@@ -258,28 +259,113 @@ ezimg_bmp_load(
         return(EZIMG_NOT_SUPPORTED);
     }
 
+    ezimg_read_u32(&stream);
+    ezimg_read_u32(&stream);
+    ezimg_read_u32(&stream);
+    ezimg_read_u32(&stream);
+    ezimg_read_u32(&stream);
+
     rmask = gmask = bmask = amask = 0;
-    if(compression == 3)
+    if(dib_header_size > 40)
     {
-        ezimg_read_u32(&stream);
-        ezimg_read_u32(&stream);
-        ezimg_read_u32(&stream);
-        ezimg_read_u32(&stream);
-        ezimg_read_u32(&stream);
         rmask = ezimg_read_u32(&stream);
         gmask = ezimg_read_u32(&stream);
         bmask = ezimg_read_u32(&stream);
         amask = ezimg_read_u32(&stream);
     }
 
+    palette_offset = 14 + dib_header_size;
+    palette = (unsigned char *)in + palette_offset;
+
     data = (unsigned char *)in + data_offset;
     data_size = in_size - data_offset;
     ezimg_init_stream(&stream, data, data_size);
 
     outp = (unsigned char *)out;
-    if(compression == 0 && bit_count == 24)
+    if(compression == 0 && bit_count == 4)
     {
-        padding = 4 - ((3 * absw) % 4);
+        if(absw % 2 == 0)
+        {
+            padding = PADDING(absw/2, 4);
+        }
+        else
+        {
+            padding = PADDING(absw/2, 4) - 1;
+        }
+
+        for(y = 0;
+            y < absh;
+            ++y)
+        {
+            unsigned char i4 = 0;
+
+            for(x = 0;
+                x < absw;
+                ++x)
+            {
+                if(x % 2 == 0)
+                {
+                    i4 = ezimg_read_u8(&stream);
+                    i = ((unsigned int)i4 >> 4);
+                }
+                else
+                {
+                    i = ((unsigned int)i4 & 0x0f);
+                }
+
+                b = *(palette + i*4 + 0);
+                g = *(palette + i*4 + 1);
+                r = *(palette + i*4 + 2);
+                a = *(palette + i*4 + 3);
+
+                *outp++ = 0xff;
+                *outp++ = r;
+                *outp++ = g;
+                *outp++ = b;
+            }
+
+            for(x = 0;
+                x < padding;
+                ++x)
+            {
+                ezimg_read_u8(&stream);
+            }
+        }
+    }
+    else if(compression == 0 && bit_count == 8)
+    {
+        padding = PADDING(1*absw, 4);
+        for(y = 0;
+            y < absh;
+            ++y)
+        {
+            for(x = 0;
+                x < absw;
+                ++x)
+            {
+                i = (unsigned int)ezimg_read_u8(&stream);
+                b = *(palette + i*4 + 0);
+                g = *(palette + i*4 + 1);
+                r = *(palette + i*4 + 2);
+                a = *(palette + i*4 + 3);
+
+                *outp++ = 0xff;
+                *outp++ = r;
+                *outp++ = g;
+                *outp++ = b;
+            }
+
+            for(x = 0;
+                x < padding;
+                ++x)
+            {
+                ezimg_read_u8(&stream);
+            }
+        }
+    }
+    else if(compression == 0 && bit_count == 24)
+    {
+        padding = PADDING(3*absw, 4);
         for(y = 0;
             y < absh;
             ++y)
@@ -327,10 +413,6 @@ ezimg_bmp_load(
                 *outp++ = b;
             }
         }
-    }
-    else if(compression == 3 && bit_count == 24)
-    {
-        return(EZIMG_NOT_SUPPORTED);
     }
     else if(compression == 3 && bit_count == 32)
     {
@@ -452,6 +534,7 @@ ezimg_bmp_load(
 
     return(EZIMG_OK);
 
+#undef PADDING
 #undef YX2OFF
 #undef XY2OFF
 }
