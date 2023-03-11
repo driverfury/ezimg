@@ -32,5 +32,5 @@ ezimg_bmp_load(
 
 ## Supported image formats
 
-[x] BMP
-[ ] PNG
+- [x] BMP
+- [ ] PNG
