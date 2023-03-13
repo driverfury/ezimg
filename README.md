@@ -5,8 +5,16 @@
 A very simple, lightweight image decompressor (loader).
 
 ```c
+/* BMP */
 unsigned int ezimg_bmp_size(void *in, unsigned int in_size);
 int ezimg_bmp_load(
+    void *in, unsigned int in_size,
+    void *out, unsigned int out_size,
+    unsigned int *width, unsigned int *height);
+
+/* PNG */
+unsigned int ezimg_png_size(void *in, unsigned int in_size);
+int ezimg_png_load(
     void *in, unsigned int in_size,
     void *out, unsigned int out_size,
     unsigned int *width, unsigned int *height);
@@ -37,4 +45,6 @@ ezimg_bmp_load(
 ## Supported image formats
 
 - [x] BMP
-- [ ] PNG
+- [x] PNG
+- [ ] QOI (coming soon)
+- [ ] PPM (coming soon)
