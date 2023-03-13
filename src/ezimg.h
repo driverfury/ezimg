@@ -17,12 +17,9 @@ ezimg_bmp_load(
 
 Supported formats:
 [x] BMP
-[ ] PNG
-    [ ] Debug RGBA
-    [ ] Transform RGB to RGBA
+[x] PNG
 [ ] QOI
 [ ] PPM
-[ ] JPG?
 
  */
 #ifndef EZIMG_H
@@ -600,7 +597,7 @@ ezimg_png_check_signature(unsigned char sign[])
 }
 
 unsigned int
-ezimg_png_filtered_img_size(unsigned int width, unsigned int height)
+ezimg_png_decomp_data_max_size(unsigned int width, unsigned int height)
 {
     return((width*height*4) + (1*height));
 }
@@ -647,7 +644,7 @@ ezimg_png_size(void *in, unsigned int in_size)
     width = ezimg_read_u32(&stream);
     height = ezimg_read_u32(&stream);
 
-    return(ezimg_png_filtered_img_size(width, height));
+    return(ezimg_png_decomp_data_max_size(width, height));
 }
 
 #define EZIMG_CHUNK_MAX_ENTRIES 20
@@ -795,7 +792,7 @@ ezimg_deflate_len(int code, ezimg_cstream *stream)
         return(-1);
     }
 
-    if (code == 285)
+    if(code == 285)
     {
         return(258);
     }
@@ -1098,7 +1095,7 @@ ezimg_decompress_idat(
 
     unsigned char *outp, *outp_end;
 
-    decomp_data_max_size = ezimg_png_filtered_img_size(width, height);
+    decomp_data_max_size = ezimg_png_decomp_data_max_size(width, height);
     if(buff_size < decomp_data_max_size)
     {
         return(0);
@@ -1449,6 +1446,12 @@ ezimg_png_filter(
         filter = *src++;
         curr_row = dst;
 
+        if(y == 7)
+        {
+            curr_row = 0;
+            curr_row = dst;
+        }
+
         if(filter == 0)
         {
             for(x = 0;
@@ -1530,7 +1533,7 @@ ezimg_png_filter(
                 dst[2] = ezimg_png_filter4(src, (unsigned char *)&a_pixel, b_pixel, (unsigned char *)&c_pixel, 2);
                 dst[3] = ezimg_png_filter4(src, (unsigned char *)&a_pixel, b_pixel, (unsigned char *)&c_pixel, 3);
 
-                c_pixel = a_pixel;
+                c_pixel = (*((unsigned int *)b_pixel) & 0xffffffff);
                 a_pixel = (*((unsigned int *)dst) & 0xffffffff);
 
                 b_pixel += prev_row_advance;
@@ -1558,11 +1561,12 @@ ezimg_png_load(
 {
     unsigned char signature[8] = {0};
     unsigned int w = 0, h = 0;
-    unsigned int bit_count, color_type, compression, filter, interlace;
+    unsigned int bit_count, color_type = 0, compression, filter, interlace;
     int first_chunk, last_chunk;
     unsigned char *chunk_data, *next_chunk;
     unsigned int i, x, y;
     unsigned int idat_chunk_index;
+    unsigned int decomp_data_max_size;
 
     unsigned char *decomp_data;
 
@@ -1663,11 +1667,29 @@ ezimg_png_load(
     {
         return(EZIMG_INVALID_IMAGE);
     }
+    decomp_data_max_size = ezimg_png_decomp_data_max_size(w, h);
 
     /* RGB to RGBA */
     if(color_type == 2)
     {
-        /* TODO */
+        for(y = 0;
+            y < h;
+            ++y)
+        {
+            for(x = 0;
+                x < w;
+                ++x)
+            {
+                unsigned int pos = 1 + x*4 + 3;
+                for(i = decomp_data_max_size - 1;
+                    i > pos;
+                    --i)
+                {
+                    decomp_data[i] = decomp_data[i - 1];
+                }
+                decomp_data[pos] = 0;
+            }
+        }
     }
 
     /* Reconstruct filters */
@@ -1694,7 +1716,7 @@ ezimg_png_load(
             b = *(decomp_data + offset + 2);
             a = *(decomp_data + offset + 3);
 
-            *(decomp_data + offset + 0) = a;
+            *(decomp_data + offset + 0) = 0xff;
             *(decomp_data + offset + 1) = r;
             *(decomp_data + offset + 2) = g;
             *(decomp_data + offset + 3) = b;
