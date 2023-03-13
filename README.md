@@ -31,14 +31,14 @@ int ezimg_png_load(
 ```c
 /**
  * comp_img = compressed image buffer
- * uncomp_img = uncompressed image buffer
+ * raw_img = raw image buffer (ARGB format)
  */
 unsigned int width, height;
-uncomp_img_size = ezimg_bmp_size(comp_image, comp_image_size);
-uncomp_img = malloc(uncomp_img_size);
+raw_img_size = ezimg_bmp_size(comp_image, comp_image_size);
+raw_img = malloc(raw_img_size);
 ezimg_bmp_load(
     comp_image, comp_image_size,
-    uncomp_img, uncomp_img_size,
+    raw_img, raw_img_size,
     &width, &height);
 ```
 
@@ -48,3 +48,9 @@ ezimg_bmp_load(
 - [x] PNG
 - [ ] QOI (coming soon)
 - [ ] PPM (coming soon)
+
+## Technical details
+
+For the PNG format the ```raw_img_size``` is calculated according to this formula: ```width*height*4 + 1*height```.
+
+So it is a bit bigger than the effective raw img size (effective size: ```width*height*4```), but we need the extra space to accomodate the png filtered data and to avoid to dynamically allocate new memory for it.
