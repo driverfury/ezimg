@@ -18,6 +18,10 @@ ezimg_bmp_load(
 Supported formats:
 [x] BMP
 [x] PNG
+    [ ] Transparency
+        [x] RGBA
+        [ ] RGB (info stored in tRNS chunk)
+    [ ] Palette
 [ ] QOI
 [ ] PPM
 
@@ -647,7 +651,7 @@ ezimg_png_size(void *in, unsigned int in_size)
     return(ezimg_png_decomp_data_max_size(width, height));
 }
 
-#define EZIMG_CHUNK_MAX_ENTRIES 20
+#define EZIMG_CHUNK_MAX_ENTRIES 50
 
 typedef struct
 ezimg_cstream
@@ -1716,7 +1720,7 @@ ezimg_png_load(
             b = *(decomp_data + offset + 2);
             a = *(decomp_data + offset + 3);
 
-            *(decomp_data + offset + 0) = 0xff;
+            *(decomp_data + offset + 0) = (color_type == 2) ? 0xff : a;
             *(decomp_data + offset + 1) = r;
             *(decomp_data + offset + 2) = g;
             *(decomp_data + offset + 3) = b;
