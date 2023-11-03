@@ -1702,31 +1702,6 @@ ezimg_png_load(
         return(EZIMG_INVALID_IMAGE);
     }
 
-    /* Transform RGBA to ARGB */
-    for(y = 0;
-        y < h;
-        ++y)
-    {
-        for(x = 0;
-            x < w;
-            ++x)
-        {
-            unsigned int offset;
-            unsigned char r, g, b, a;
-
-            offset = (y*w + x)*4;
-            r = *(decomp_data + offset + 0);
-            g = *(decomp_data + offset + 1);
-            b = *(decomp_data + offset + 2);
-            a = *(decomp_data + offset + 3);
-
-            *(decomp_data + offset + 0) = (color_type == 2) ? 0xff : a;
-            *(decomp_data + offset + 1) = r;
-            *(decomp_data + offset + 2) = g;
-            *(decomp_data + offset + 3) = b;
-        }
-    }
-
     if(width)
     {
         *width = w;
